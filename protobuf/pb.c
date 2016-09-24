@@ -48,6 +48,71 @@ typedef struct{
     char buf[IOSTRING_BUF_LEN];
 } IOString;
 
+// !! str should has enough memery
+// @return result string length
+static int convert_int64_to_str(int64_t n64,char* str)
+{
+    assert(str != NULL);
+    int len = 0;
+    int64_t num = n64;
+    bool neg = false;
+    if (num < 0)
+    {
+        num = -num;
+        neg = true;
+    }
+    if (num == 0)
+    {
+        str[len++] = '0';
+    }
+    while (num > 0)
+    {
+        str[len++] = num % 10 + '0';
+        num /= 10;
+    }
+    if (neg)
+    {
+        str[len++] = '-';
+    }
+
+    for (int i = 0, tl = len / 2; i < tl; i++)
+    {
+        char t = str[i];
+        str[i] = str[len - i - 1];
+        str[len - i - 1] = t;
+    }
+    
+    str[len] = '\0';
+    return len;
+}
+
+static int64_t convert_str_to_int64(const char* str,int len)
+{
+    assert(str != NULL);
+    int64_t num = 0;
+    int neg = 1;
+    int idx = 0;
+    if (len > 0 && str[0] == '-')
+    {
+        neg = -1;
+        idx = 1;
+    }
+    for (; (idx < len) && str[idx]; ++idx)
+    {
+        num = num * 10 + (str[idx] - '0');
+    }
+    num *= neg;
+    return num;
+}
+
+static int64_t get_int64_from_stack(lua_State *L, int idx)
+{
+    size_t len;
+    const char* buffer = luaL_checklstring(L, idx, &len);
+
+    return convert_str_to_int64(buffer, len);
+}
+
 static void pack_varint(luaL_Buffer *b, uint64_t value)
 {
     if (value >= 0x80)
@@ -105,7 +170,7 @@ static int varint_encoder(lua_State *L)
 
     luaL_Buffer b;
     luaL_buffinit(L, &b);
-    
+
     pack_varint(&b, value);
 
     lua_settop(L, 1);
@@ -118,7 +183,7 @@ static int signed_varint_encoder(lua_State *L)
 {
     lua_Number l_value = luaL_checknumber(L, 2);
     int64_t value = (int64_t)l_value;
-    
+
     luaL_Buffer b;
     luaL_buffinit(L, &b);
 
@@ -128,7 +193,28 @@ static int signed_varint_encoder(lua_State *L)
     }else{
         pack_varint(&b, value);
     }
-    
+
+    lua_settop(L, 1);
+    luaL_pushresult(&b);
+    lua_call(L, 1, 0);
+    return 0;
+}
+
+static int signed_varint_encoder64(lua_State *L)
+{
+    int64_t value = get_int64_from_stack(L, 2);
+
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+
+    if (value < 0)
+    {
+        pack_varint(&b, *(uint64_t*)&value);
+    }
+    else{
+        pack_varint(&b, value);
+    }
+
     lua_settop(L, 1);
     luaL_pushresult(&b);
     lua_call(L, 1, 0);
@@ -259,6 +345,49 @@ static int signed_varint_decoder(lua_State *L)
         luaL_error(L, "error data %s, len:%d", buffer, len);
     }else{
         lua_pushnumber(L, (lua_Number)(int64_t)unpack_varint(buffer, len));
+        lua_pushinteger(L, len + pos);
+    }
+    return 2;
+}
+
+static int signed_varint_decoder64(lua_State *L)
+{
+    size_t len;
+    const char* buffer = luaL_checklstring(L, 1, &len);
+    size_t pos = luaL_checkinteger(L, 2);
+    buffer += pos;
+    len = size_varint(buffer, len);
+
+    if (len == -1){
+        luaL_error(L, "error data %s, len:%d", buffer, len);
+    }
+    else{
+        int64_t num = unpack_varint(buffer, len);
+        char buffer[32] = {0};
+        convert_int64_to_str(num, buffer);
+        lua_pushstring(L, (const char*)buffer);
+        lua_pushinteger(L, len + pos);
+    }
+    return 2;
+}
+
+static int zigint_decoder64(lua_State *L)
+{
+    size_t len;
+    const char* buffer = luaL_checklstring(L, 1, &len);
+    size_t pos = luaL_checkinteger(L, 2);
+    buffer += pos;
+    len = size_varint(buffer, len);
+
+    if (len == -1){
+        luaL_error(L, "error data %s, len:%d", buffer, len);
+    }
+    else{
+        uint64_t n = unpack_varint(buffer, len);
+        int64_t value = (n >> 1) ^ -(int64_t)(n & 1);
+        char buffer[32] = { 0 };
+        convert_int64_to_str(value, buffer);
+        lua_pushstring(L, (const char*)buffer);
         lua_pushinteger(L, len + pos);
     }
     return 2;
@@ -437,19 +566,68 @@ static int iostring_clear(lua_State* L)
     return 0;
 }
 
+static int _varint_save_size(uint64_t u64)
+{
+    int count = 1;
+    while (u64 >= 0x80)
+    {
+        ++count;
+        u64 >>= 7;
+    }
+    return count;
+}
+
+static int varint_save_size64(lua_State* L)
+{
+    int64_t num = get_int64_from_stack(L, 1);
+    int count = _varint_save_size(num);
+    lua_pushinteger(L, count);
+    return 1;
+}
+
+static int zigint_save_size64(lua_State* L)
+{
+    int64_t num = get_int64_from_stack(L, 1);
+    uint64_t zig = (num << 1) ^ (num >> 63);
+    lua_Number count = _varint_save_size(zig);
+    lua_pushinteger(L, count);
+    return 1;
+}
+
+static int zigint_encoder64(lua_State *L)
+{
+    int64_t l_value = get_int64_from_stack(L, 2);
+    uint64_t value = (l_value << 1) ^ (l_value >> 63);
+
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    pack_varint(&b, value);
+
+    lua_settop(L, 1);
+    luaL_pushresult(&b);
+    lua_call(L, 1, 0);
+    return 0;
+}
+
 static const struct luaL_reg _pb [] = {
     {"varint_encoder", varint_encoder},
     {"signed_varint_encoder", signed_varint_encoder},
+    { "signed_varint_encoder64", signed_varint_encoder64 },
+    { "zigint_encoder64", zigint_encoder64 },
     {"read_tag", read_tag},
     {"struct_pack", struct_pack},
     {"struct_unpack", struct_unpack},
     {"varint_decoder", varint_decoder},
     {"signed_varint_decoder", signed_varint_decoder},
+    { "signed_varint_decoder64", signed_varint_decoder64 },
+    { "zigint_decoder64", zigint_decoder64 },
     {"zig_zag_decode32", zig_zag_decode32},
     {"zig_zag_encode32", zig_zag_encode32},
     {"zig_zag_decode64", zig_zag_decode64},
-    {"zig_zag_encode64", zig_zag_encode64},
+    {"zig_zag_encode64", zig_zag_encode64 },
     {"new_iostring", iostring_new},
+    { "varint_save_size64", varint_save_size64 },
+    { "zigint_save_size64", zigint_save_size64 },
     {NULL, NULL}
 };
 

@@ -33,6 +33,9 @@ local _DecodeSignedVarint = pb.signed_varint_decoder
 local _DecodeVarint32 = pb.varint_decoder
 local _DecodeSignedVarint32 = pb.signed_varint_decoder
 
+local _DecodeSignedVarint64 = pb.signed_varint_decoder64
+local _DecodeZigint64 = pb.zigint_decoder64
+
 ReadTag = pb.read_tag
 
 local function _SimpleDecoder(wire_type, decode_value)
@@ -123,13 +126,13 @@ end
 Int32Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint32)
 EnumDecoder = Int32Decoder
 
-Int64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint)
+Int64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeSignedVarint64)
 
 UInt32Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint32)
-UInt64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint)
+UInt64Decoder = Int64Decoder
 
 SInt32Decoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint32, wire_format.ZigZagDecode32)
-SInt64Decoder = _ModifiedDecoder(wire_format.WIRETYPE_VARINT, _DecodeVarint, wire_format.ZigZagDecode64)
+SInt64Decoder = _SimpleDecoder(wire_format.WIRETYPE_VARINT, _DecodeZigint64)
 
 Fixed32Decoder  = _StructPackDecoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('I'))
 Fixed64Decoder  = _StructPackDecoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('Q'))
@@ -284,7 +287,7 @@ end
 
 function _SkipFixed64(buffer, pos, pend)
     pos = pos + 8
-    if pos > pend then 
+    if pos > pend then
         error('Truncated message.')
     end
     return pos

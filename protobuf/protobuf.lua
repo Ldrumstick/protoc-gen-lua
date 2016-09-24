@@ -23,7 +23,7 @@ local error = error
 local ipairs = ipairs
 local pairs = pairs
 local print = print
-local table = table 
+local table = table
 local string = string
 local tostring = tostring
 local type = type
@@ -137,37 +137,17 @@ local NON_PACKABLE_TYPES = {
 }
 
 local _VALUE_CHECKERS = {
+    [FieldDescriptor.TYPE_SINT64] = type_checkers.Int64ValueChecker(),
+    [FieldDescriptor.TYPE_SINT32] = type_checkers.Int32ValueChecker(),
     [FieldDescriptor.CPPTYPE_INT32] = type_checkers.Int32ValueChecker(),
-    [FieldDescriptor.CPPTYPE_INT64] = type_checkers.Int32ValueChecker(),
+    [FieldDescriptor.CPPTYPE_INT64] = type_checkers.Int64ValueChecker(),
     [FieldDescriptor.CPPTYPE_UINT32] = type_checkers.Uint32ValueChecker(),
-    [FieldDescriptor.CPPTYPE_UINT64] = type_checkers.Uint32ValueChecker(),
+    [FieldDescriptor.CPPTYPE_UINT64] = type_checkers.Int64ValueChecker(),
     [FieldDescriptor.CPPTYPE_DOUBLE] = type_checkers.TypeChecker({number = true}),
     [FieldDescriptor.CPPTYPE_FLOAT] = type_checkers.TypeChecker({number = true}),
     [FieldDescriptor.CPPTYPE_BOOL] = type_checkers.TypeChecker({boolean = true, bool = true, int=true}),
     [FieldDescriptor.CPPTYPE_ENUM] = type_checkers.Int32ValueChecker(),
     [FieldDescriptor.CPPTYPE_STRING] = type_checkers.TypeChecker({string = true})
-}
-
-
-local TYPE_TO_BYTE_SIZE_FN = {
-    [FieldDescriptor.TYPE_DOUBLE] = wire_format.DoubleByteSize,
-    [FieldDescriptor.TYPE_FLOAT] = wire_format.FloatByteSize,
-    [FieldDescriptor.TYPE_INT64] = wire_format.Int64ByteSize,
-    [FieldDescriptor.TYPE_UINT64] = wire_format.UInt64ByteSize,
-    [FieldDescriptor.TYPE_INT32] = wire_format.Int32ByteSize,
-    [FieldDescriptor.TYPE_FIXED64] = wire_format.Fixed64ByteSize,
-    [FieldDescriptor.TYPE_FIXED32] = wire_format.Fixed32ByteSize,
-    [FieldDescriptor.TYPE_BOOL] = wire_format.BoolByteSize,
-    [FieldDescriptor.TYPE_STRING] = wire_format.StringByteSize,
-    [FieldDescriptor.TYPE_GROUP] = wire_format.GroupByteSize,
-    [FieldDescriptor.TYPE_MESSAGE] = wire_format.MessageByteSize,
-    [FieldDescriptor.TYPE_BYTES] = wire_format.BytesByteSize,
-    [FieldDescriptor.TYPE_UINT32] = wire_format.UInt32ByteSize,
-    [FieldDescriptor.TYPE_ENUM] = wire_format.EnumByteSize,
-    [FieldDescriptor.TYPE_SFIXED32] = wire_format.SFixed32ByteSize,
-    [FieldDescriptor.TYPE_SFIXED64] = wire_format.SFixed64ByteSize,
-    [FieldDescriptor.TYPE_SINT32] = wire_format.SInt32ByteSize,
-    [FieldDescriptor.TYPE_SINT64] = wire_format.SInt64ByteSize
 }
 
 local TYPE_TO_ENCODER = {
@@ -233,27 +213,6 @@ local TYPE_TO_DECODER = {
     [FieldDescriptor.TYPE_SINT64] = decoder.SInt64Decoder
 }
 
-local FIELD_TYPE_TO_WIRE_TYPE = {
-    [FieldDescriptor.TYPE_DOUBLE] = wire_format.WIRETYPE_FIXED64,
-    [FieldDescriptor.TYPE_FLOAT] = wire_format.WIRETYPE_FIXED32,
-    [FieldDescriptor.TYPE_INT64] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_UINT64] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_INT32] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_FIXED64] = wire_format.WIRETYPE_FIXED64,
-    [FieldDescriptor.TYPE_FIXED32] = wire_format.WIRETYPE_FIXED32,
-    [FieldDescriptor.TYPE_BOOL] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_STRING] = wire_format.WIRETYPE_LENGTH_DELIMITED,
-    [FieldDescriptor.TYPE_GROUP] = wire_format.WIRETYPE_START_GROUP,
-    [FieldDescriptor.TYPE_MESSAGE] = wire_format.WIRETYPE_LENGTH_DELIMITED,
-    [FieldDescriptor.TYPE_BYTES] = wire_format.WIRETYPE_LENGTH_DELIMITED,
-    [FieldDescriptor.TYPE_UINT32] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_ENUM] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_SFIXED32] = wire_format.WIRETYPE_FIXED32,
-    [FieldDescriptor.TYPE_SFIXED64] = wire_format.WIRETYPE_FIXED64,
-    [FieldDescriptor.TYPE_SINT32] = wire_format.WIRETYPE_VARINT,
-    [FieldDescriptor.TYPE_SINT64] = wire_format.WIRETYPE_VARINT
-}
-
 local function IsTypePackable(field_type)
     return NON_PACKABLE_TYPES[field_type] == nil
 end
@@ -307,7 +266,7 @@ local function _AttachFieldHelpers(message_meta, field_descriptor)
         local tag_bytes = encoder.TagBytes(field_descriptor.number, wiretype)
         message_meta._decoders_by_tag[tag_bytes] = TYPE_TO_DECODER[field_descriptor.type](field_descriptor.number, is_repeated, is_packed, field_descriptor, field_descriptor._default_constructor)
     end
-  
+
     AddDecoder(FIELD_TYPE_TO_WIRE_TYPE[field_descriptor.type], False)
     if is_repeated and IsTypePackable(field_descriptor.type) then
         AddDecoder(wire_format.WIRETYPE_LENGTH_DELIMITED, True)
@@ -330,7 +289,7 @@ local function _InitMethod(message_meta)
         self._fields = {}
         self._is_present_in_parent = false
         self._listener = listener_mod.NullMessageListener()
-        self._listener_for_children = listener_mod.Listener(self) 
+        self._listener_for_children = listener_mod.Listener(self)
         return setmetatable(self, message_meta)
     end
 end
@@ -362,7 +321,7 @@ local function _AddPropertiesForNonRepeatedCompositeField(field, message_meta)
         if field_value == nil then
             field_value = message_type._concrete_class()
             field_value:_SetListener(self._listener_for_children)
-            
+
             self._fields[field] = field_value
         end
         return field_value
@@ -378,7 +337,7 @@ local function _AddPropertiesForNonRepeatedScalarField(field, message)
     local default_value = field.default_value
 
     message._getter[property_name] = function(self)
-        local value =  self._fields[field] 
+        local value =  self._fields[field]
         if value ~= nil then
             return self._fields[field]
         else
@@ -504,7 +463,7 @@ local function _AddListFieldsMethod(message_descriptor, message_meta)
                 while true do
                     local descriptor, value = f(a, i)
                     if descriptor == nil then
-                        return 
+                        return
                     elseif _IsPresent(descriptor, value) then
                         return descriptor, value
                     end
@@ -513,6 +472,13 @@ local function _AddListFieldsMethod(message_descriptor, message_meta)
             return iter, s, v
         end
         return list_field(self._fields)
+    end
+end
+
+local function _AddToLuaTableMethod(message_meta)
+    local to_lua_table = text_format.msg_to_lua_table
+    message_meta._member.ToLuaTable = function(self)
+        return to_lua_table(self)
     end
 end
 
@@ -569,7 +535,7 @@ end
 local function _AddStrMethod(message_meta)
     local format = text_format.msg_format
     message_meta.__tostring = function(self)
-        return format(self)    
+        return format(self)
     end
 end
 
@@ -616,14 +582,14 @@ end
 local function _AddSerializeToStringMethod(message_descriptor, message_meta)
     message_meta._member.SerializeToString = function(self)
         if not message_meta._member.IsInitialized(self) then
-            error('Message is missing required fields: ' .. 
+            error('Message is missing required fields: ' ..
                 table.concat(message_meta._member.FindInitializationErrors(self), ','))
         end
         return message_meta._member.SerializePartialToString(self)
     end
     message_meta._member.SerializeToIOString = function(self, iostring)
         if not message_meta._member.IsInitialized(self) then
-            error('Message is missing required fields: ' .. 
+            error('Message is missing required fields: ' ..
                 table.concat(message_meta._member.FindInitializationErrors(self), ','))
         end
         return message_meta._member.SerializePartialToIOString(self, iostring)
@@ -641,10 +607,10 @@ local function _AddSerializePartialToStringMethod(message_descriptor, message_me
     local _serialize_partial_to_iostring = function(self, iostring)
         local w = iostring.write
         local write = function(value)
-            w(iostring, value) 
+            w(iostring, value)
         end
         _internal_serialize(self, write)
-        return 
+        return
     end
 
     local _serialize_partial_to_string = function(self)
@@ -669,7 +635,7 @@ local function _AddMergeFromStringMethod(message_descriptor, message_meta)
     local _internal_parse = function(self, buffer, pos, pend)
         message_meta._member._Modified(self)
         local field_dict = self._fields
-        local tag_bytes, new_pos 
+        local tag_bytes, new_pos
         local field_decoder
         while pos ~= pend do
             tag_bytes, new_pos = ReadTag(buffer, pos)
@@ -686,14 +652,14 @@ local function _AddMergeFromStringMethod(message_descriptor, message_meta)
         end
         return pos
     end
-    message_meta._member._InternalParse = _internal_parse 
+    message_meta._member._InternalParse = _internal_parse
 
     local merge_from_string = function(self, serialized)
         local length = #serialized
         if _internal_parse(self, serialized, 0, length) ~= length then
             error('Unexpected end-group tag.')
         end
-        return length 
+        return length
     end
     message_meta._member.MergeFromString = merge_from_string
 
@@ -713,7 +679,7 @@ local function _AddIsInitializedMethod(message_descriptor, message_meta)
 
     message_meta._member.IsInitialized = function(self, errors)
         for _, field in ipairs(required_fields) do
-            if self._fields[field] == nil or 
+            if self._fields[field] == nil or
                 (field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE and not self._fields[field]._is_present_in_parent) then
                 if errors ~= nil then
                     errors[#errors + 1] = message_meta._member.FindInitializationErrors(self)
@@ -749,7 +715,7 @@ local function _AddIsInitializedMethod(message_descriptor, message_meta)
 
         for _,field in ipairs(required_fields) do
             if not message_meta._member.HasField(self, field.name) then
-                errors.append(field.name) 
+                errors.append(field.name)
             end
         end
 
@@ -817,6 +783,7 @@ local function _AddMessageMethods(message_descriptor, message_meta)
     _AddClearMethod(message_descriptor, message_meta)
 --    _AddEqualsMethod(message_descriptor, message_meta)
     _AddStrMethod(message_meta)
+    _AddToLuaTableMethod(message_meta)
     _AddSetListenerMethod(message_meta)
     _AddByteSizeMethod(message_descriptor, message_meta)
     _AddSerializeToStringMethod(message_descriptor, message_meta)
@@ -842,7 +809,7 @@ end
 local function property_getter(message_meta)
     local getter = message_meta._getter
     local member = message_meta._member
-	
+
     return function (self, property)
 		local g = getter[property]
 		if g then
@@ -895,12 +862,12 @@ local function Message(descriptor)
 
     local ns = setmetatable({}, message_meta._member)
     message_meta._member.__call = _InitMethod(message_meta)
-    message_meta._member.__index = message_meta._member 
+    message_meta._member.__index = message_meta._member
     message_meta._member.type = ns
 
     if rawget(descriptor, "_concrete_class") == nil then
         rawset(descriptor, "_concrete_class", ns)
-        for k, field in ipairs(descriptor.fields) do  
+        for k, field in ipairs(descriptor.fields) do
             _AttachFieldHelpers(message_meta, field)
         end
     end
@@ -913,9 +880,9 @@ local function Message(descriptor)
     _AddPrivateHelperMethods(message_meta)
 
     message_meta.__index = property_getter(message_meta)
-    message_meta.__newindex = property_setter(message_meta) 
+    message_meta.__newindex = property_setter(message_meta)
 
-    return ns 
+    return ns
 end
 
 _M.Message = Message

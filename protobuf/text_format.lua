@@ -27,13 +27,13 @@ local descriptor = require "descriptor"
 module "text_format"
 
 function format(buffer)
-    local len = string.len( buffer )	
-    for i = 1, len, 16 do		
-        local text = ""	
-        for j = i, math.min( i + 16 - 1, len ) do	
-            text = string.format( "%s  %02x", text, string.byte( buffer, j ) )			
-        end			
-        print( text )	
+    local len = string.len( buffer )
+    for i = 1, len, 16 do
+        local text = ""
+        for j = i, math.min( i + 16 - 1, len ) do
+            text = string.format( "%s  %02x", text, string.byte( buffer, j ) )
+        end
+        print( text )
     end
 end
 
@@ -66,6 +66,32 @@ msg_format_indent = function(write, msg, indent)
             print_field(value)
         end
     end
+end
+
+function msg_to_lua_table(msg)
+    local ret = {}
+    for field, value in msg:ListFields() do
+        local name = field.name
+        local isMessage = (field.type == FieldDescriptor.TYPE_MESSAGE)
+        if field.label == FieldDescriptor.LABEL_REPEATED then
+            local arr = {}
+            for _, k in ipairs(value) do
+                if isMessage then
+                    table.insert(arr,msg_to_lua_table(k))
+                else
+                    table.insert(arr,k)
+                end
+            end
+            ret[name] = arr
+        else
+            if isMessage then
+                ret[name] = msg_to_lua_table(value)
+            else
+                ret[name] = value
+            end
+        end
+    end
+    return ret
 end
 
 function msg_format(msg)

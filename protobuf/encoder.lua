@@ -41,6 +41,9 @@ function _SignedVarintSize(value)
     return 5
 end
 
+local _SignedVarintSize64 = pb.varint_save_size64
+local _ZigintSize64 = pb.zigint_save_size64
+
 function _TagSize(field_number)
   return _VarintSize(wire_format.PackTag(field_number, 0))
 end
@@ -125,20 +128,20 @@ function _FixedSizer(value_size)
 end
 
 Int32Sizer = _SimpleSizer(_SignedVarintSize)
-Int64Sizer = Int32Sizer
+Int64Sizer = _SimpleSizer(_SignedVarintSize64)
 EnumSizer = Int32Sizer
 
 UInt32Sizer = _SimpleSizer(_VarintSize)
-UInt64Sizer = UInt32Sizer 
+UInt64Sizer = Int64Sizer
 
-SInt32Sizer = _ModifiedSizer(_SignedVarintSize, wire_format.ZigZagEncode)
-SInt64Sizer = SInt32Sizer
+SInt32Sizer = _ModifiedSizer(_SignedVarintSize, wire_format.ZigZagEncode32)
+SInt64Sizer = _SimpleSizer(_ZigintSize64)
 
-Fixed32Sizer = _FixedSizer(4) 
+Fixed32Sizer = _FixedSizer(4)
 SFixed32Sizer = Fixed32Sizer
 FloatSizer = Fixed32Sizer
 
-Fixed64Sizer = _FixedSizer(8) 
+Fixed64Sizer = _FixedSizer(8)
 SFixed64Sizer = Fixed64Sizer
 DoubleSizer = Fixed64Sizer
 
@@ -214,6 +217,10 @@ end
 
 local _EncodeVarint = pb.varint_encoder
 local _EncodeSignedVarint = pb.signed_varint_encoder
+
+local _EncodeSignedVarint64 = pb.signed_varint_encoder64
+local _EncodeZigint64 = pb.zigint_encoder64
+
 
 
 function _VarintBytes(value)
@@ -330,19 +337,17 @@ function _StructPackEncoder(wire_type, value_size, format)
 end
 
 Int32Encoder = _SimpleEncoder(wire_format.WIRETYPE_VARINT, _EncodeSignedVarint, _SignedVarintSize)
-Int64Encoder = Int32Encoder
+Int64Encoder = _SimpleEncoder(wire_format.WIRETYPE_VARINT, _EncodeSignedVarint64, _SignedVarintSize64)
 EnumEncoder = Int32Encoder
 
 UInt32Encoder = _SimpleEncoder(wire_format.WIRETYPE_VARINT, _EncodeVarint, _VarintSize)
-UInt64Encoder = UInt32Encoder
+UInt64Encoder = Int64Encoder
 
 SInt32Encoder = _ModifiedEncoder(
     wire_format.WIRETYPE_VARINT, _EncodeVarint, _VarintSize,
     wire_format.ZigZagEncode32)
 
-SInt64Encoder = _ModifiedEncoder(
-    wire_format.WIRETYPE_VARINT, _EncodeVarint, _VarintSize,
-    wire_format.ZigZagEncode64)
+SInt64Encoder = _SimpleEncoder(wire_format.WIRETYPE_VARINT, _EncodeZigint64, _ZigintSize64)
 
 Fixed32Encoder  = _StructPackEncoder(wire_format.WIRETYPE_FIXED32, 4, string.byte('I'))
 Fixed64Encoder  = _StructPackEncoder(wire_format.WIRETYPE_FIXED64, 8, string.byte('Q'))
