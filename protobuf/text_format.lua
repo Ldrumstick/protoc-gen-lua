@@ -70,27 +70,39 @@ end
 
 function msg_to_lua_table(msg)
     local ret = {}
-    for field, value in msg:ListFields() do
+    for xx,field in ipairs(msg._proto_descriptor.fields) do
         local name = field.name
+        local value = msg._fields[field]
         local isMessage = (field.type == FieldDescriptor.TYPE_MESSAGE)
         if field.label == FieldDescriptor.LABEL_REPEATED then
             local arr = {}
-            for _, k in ipairs(value) do
-                if isMessage then
-                    table.insert(arr,msg_to_lua_table(k))
-                else
-                    table.insert(arr,k)
+            if value then
+                for _, k in ipairs(value) do
+                    if isMessage then
+                        table.insert(arr,msg_to_lua_table(k))
+                    else
+                        table.insert(arr,k)
+                    end
                 end
             end
             ret[name] = arr
         else
-            if isMessage then
-                ret[name] = msg_to_lua_table(value)
+            if value then
+                if isMessage then
+                    ret[name] = msg_to_lua_table(value)
+                else
+                    ret[name] = value
+                end
             else
-                ret[name] = value
+                if isMessage then
+                    ret[name] = msg_to_lua_table(field.message_type._concrete_class())
+                else
+                    ret[name] = field.default_value
+                end
             end
         end
     end
+
     return ret
 end
 

@@ -864,6 +864,7 @@ local function Message(descriptor)
     message_meta._member.__call = _InitMethod(message_meta)
     message_meta._member.__index = message_meta._member
     message_meta._member.type = ns
+    message_meta._member._proto_descriptor = descriptor
 
     if rawget(descriptor, "_concrete_class") == nil then
         rawset(descriptor, "_concrete_class", ns)
