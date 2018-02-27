@@ -328,7 +328,8 @@ def code_gen_field(index, field_desc, env):
             pos = 0
 
         type_name = type_name[:pos] + type_name[pos:].upper().replace('.', '_')
-        type_name = _prefix + type_name
+        if pos == 0:
+            type_name = _prefix + type_name
 
         if field_desc.type == FDP.TYPE_MESSAGE:
             context('.message_type = %s\n' % type_name)
